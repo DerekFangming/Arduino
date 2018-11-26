@@ -1,37 +1,44 @@
 #include "Servo.h"
 #include "SevSeg.h"
-SevSeg sevseg; 
 
-int servoPin = 14;
+//Plugins
+SevSeg sevseg;
 Servo servo;
-int servoAngle = 0;
 
+//pins
+int servoPin = 14;
+int servoAngle = 0;
 int buttonPin = 19;
 
+//Time remaining
+int hours = 0;
+int minutes = 0;
+int seconds = 0;
+
+//Controls time and toggle the time mark
+int previousMillis = 0;
+bool timeToggle = false;
+
+//7 seg settings
+byte numDigits = 4;
+byte digitPins[] = {10, 11, 12, 13};
+byte segmentPins[] = {9, 2, 3, 5, 6, 8, 7, 4};
+bool resistorsOnSegments = true; 
+bool updateWithDelaysIn = true;
+byte hardwareConfig = COMMON_CATHODE; 
+bool updateWithDelays = false;
+bool leadingZeros = true;
+bool disableDecPoint = false;
 
 void setup() {
   Serial.begin(9600);
   servo.attach(servoPin);
-
   pinMode(buttonPin, INPUT);
-
-  byte numDigits = 4;
-  byte digitPins[] = {10, 11, 12, 13};
-  byte segmentPins[] = {9, 2, 3, 5, 6, 8, 7, 4};
-
-  bool resistorsOnSegments = true; 
-  bool updateWithDelaysIn = true;
-  byte hardwareConfig = COMMON_CATHODE; 
-  bool updateWithDelays = false;
-  bool leadingZeros = true;
-  bool disableDecPoint = false;
+  
   sevseg.begin(hardwareConfig, numDigits, digitPins, segmentPins, resistorsOnSegments,
   updateWithDelays, leadingZeros, disableDecPoint);
   sevseg.setBrightness(90);
 }
-int cur = 0;
-bool a = false;
-int minutes = 20;
 int val = 0;
 
 int preVal = 0;
@@ -42,13 +49,13 @@ void loop() {
   if (topping) {
     if (curVal == 1023){
       if (preVal == 1023) {
-        if (valCount < 5) {
-          if (++valCount == 5) {
+        if (valCount < 15) {
+          if (++valCount == 15) {
             topping = false;
           }
         }
       } else {
-        valCount = 1;
+        valCount = 0;
       }
     }
   } else {
@@ -57,50 +64,48 @@ void loop() {
         if (valCount > 0) {
           if (--valCount == 0) {
             topping = true;
-            minutes ++;
+            hours ++;
           }
         }
       } else {
-        valCount = 5;
+        valCount = 15;
       }
     }
   }
-
   preVal = curVal;
-  Serial.println(valCount);
-//  val = digitalRead(buttonPin);
-//
-//  int val1 = analogRead(buttonPin);
-//  
-//  Serial.println(val1);
-//  if (val == HIGH) {         // check if the input is HIGH (button released)
-//    minutes ++;
-//  }
   
-  int millies = millis();
-  if (millies - cur >= 1000) {
-    cur = millies;
-    a = !a;
+  int currentMillis = millis();
+  if (currentMillis - previousMillis >= 1000) {
+    previousMillis = currentMillis;
+    updateTimeRemaining();
+    timeToggle = !timeToggle;
   }
 
-  if (a){
-    sevseg.setNumber(8888);
+  if (timeToggle){
+    sevseg.setNumber(hours * 100 + minutes, 2);
     sevseg.refreshDisplay();
   } else {
-    sevseg.setNumber(600 + minutes, 0);
+    sevseg.setNumber(hours * 100 + minutes, 0);
     sevseg.refreshDisplay();
   }
 
-//servo.write(0);
-//delay(2000);
-//servo.write(115);
-//delay(2000);
-//  servo.write(0);      // Turn SG90 servo Left to 45 degrees
-//  delay(2000);          // Wait 1 second
-//  servo.write(90);      // Turn SG90 servo back to 90 degrees (center position)
-//  delay(2000);          // Wait 1 second
-//  servo.write(180);     // Turn SG90 servo Right to 135 degrees
-//  delay(2000);          // Wait 1 second
-//  servo.write(90);      // Turn SG90 servo back to 90 degrees (center position)
-//  delay(2000);
+  if (seconds == 0 && minutes == 0 && hours == 0) {
+    servo.write(115);
+  } else {
+    servo.write(0);
+  }
 }
+
+void updateTimeRemaining() {
+  if (seconds > 0) {
+    seconds --;
+  } else if (minutes > 0) {
+    minutes --;
+    seconds = 59;
+  } else if (hours > 0) {
+    hours --;
+    minutes = 59;
+    seconds = 59;
+  }
+}
+
